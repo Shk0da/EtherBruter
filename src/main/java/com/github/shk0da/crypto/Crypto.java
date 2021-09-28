@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.lang.System.out;
 import static java.lang.System.setOut;
@@ -56,6 +57,7 @@ public class Crypto {
         out.printf("%s: Start Crypto%n%n", new Date());
         out.printf("Current Gas price: %s%n", getGasPrice());
 
+        final AtomicLong progress = new AtomicLong(0);
         final int numberOfProcesses = Runtime.getRuntime().availableProcessors() * 2;
         List<CompletableFuture<Void>> seekers = new ArrayList<>(numberOfProcesses);
         for (int i = 0; i < numberOfProcesses; i++) {
@@ -65,9 +67,10 @@ public class Crypto {
                         byte[] initialEntropy = new byte[16];
                         secureRandom.nextBytes(initialEntropy);
                         String mnemonic = MnemonicUtils.generateMnemonic(initialEntropy);
-                        out.println("mnemonic: " + mnemonic);
                         checkWallet(mnemonic);
-                        out.println();
+                        if (progress.getAndIncrement() % 1000 == 0) {
+                            out.println("progress: " + progress);
+                        }
                     }
                 } catch (Exception ex) {
                     out.printf("Error: %s%n", ex.getMessage());
@@ -87,16 +90,18 @@ public class Crypto {
     private static void checkWallet(String mnemonic) throws InterruptedException, ExecutionException, IOException, CipherException {
         Credentials credentials = WalletUtils.loadBip39Credentials("", mnemonic);
         String address = credentials.getAddress();
-        out.printf("Address: %s%n", address);
         var balance = getBalance(address);
         if (balance > 0.0) {
+            out.printf("Address: %s%n", address);
             out.printf("Balance: %s%n", balance);
+            out.printf("Mnemonic: %s%n", mnemonic);
             FileWriter fileWriter = new FileWriter(walletsDir.getPath() + "/" + address);
             PrintWriter printWriter = new PrintWriter(fileWriter);
             printWriter.printf("Balance: %s%n", balance);
             printWriter.printf("Mnemonic: %s%n", mnemonic);
             printWriter.close();
             generateWallet(mnemonic);
+            out.println();
         }
     }
 
