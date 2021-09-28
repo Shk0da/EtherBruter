@@ -1,0 +1,52 @@
+plugins {
+    id 'java'
+}
+
+group 'com.github.shk0da'
+version '1.0'
+
+sourceCompatibility = 11
+
+repositories {
+    flatDir {
+        dirs 'libs'
+    }
+}
+
+dependencies {
+    implementation name: 'gson-2.8.6'
+    implementation name: 'jsoup-1.13.1'
+	implementation name: 'core-5.0.0'
+	implementation name: 'crypto-5.0.0'
+	implementation name: 'abi-5.0.0'
+	implementation name: 'tuples-5.0.0'
+	implementation name: 'utils-5.0.0'
+	implementation name: 'jackson-core-2.12.5'
+	implementation name: 'jackson-databind-2.12.5'
+	implementation name: 'jackson-annotations-2.12.5'
+	implementation name: 'bcprov-jdk15on-1.69'
+	implementation name: 'okhttp-4.9.1'
+	implementation name: 'kotlin-reflect-1.5.31'
+	implementation name: 'kotlin-stdlib-1.5.31'
+	implementation name: 'kotlin-stdlib-common-1.5.31'
+	implementation name: 'slf4j-api-1.7.32'
+	implementation name: 'okio-2.10.0'
+	implementation name: 'reactive-streams-1.0.3'
+	implementation name: 'rxjava-2.2.21'
+	implementation name: 'rxkotlin-2.4.0'
+}
+
+task uberJar(type: Jar) {
+    manifest {
+        attributes 'Main-Class': 'com.github.shk0da.crypto.Crypto'
+    }
+
+    from { sourceSets.main.output }
+    dependsOn { configurations.runtimeClasspath }
+	from (configurations.runtimeClasspath.filter { it.name.endsWith("jar") }.collect { zipTree(it) }) {
+		exclude 'META-INF/MANIFEST.MF'
+		exclude 'META-INF/*.SF'
+		exclude 'META-INF/*.DSA'
+		exclude 'META-INF/*.RSA'
+	}
+}
