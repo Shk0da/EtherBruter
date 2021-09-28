@@ -20,14 +20,19 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.MathContext;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.TimeZone;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
 import static java.lang.System.out;
 import static java.lang.System.setOut;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.TimeZone.setDefault;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.runAsync;
 
 public class Crypto {
 
@@ -45,27 +50,38 @@ public class Crypto {
         }
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws ExecutionException, InterruptedException {
         setDefault(TimeZone.getTimeZone("Europe/Moscow"));
         setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, UTF_8));
         out.printf("%s: Start Crypto%n%n", new Date());
+        out.printf("Current Gas price: %s%n", getGasPrice());
 
-        try {
-            out.printf("Current Gas price: %s%n", getGasPrice());
-            while (true) {
-                byte[] initialEntropy = new byte[16];
-                secureRandom.nextBytes(initialEntropy);
-                String mnemonic = MnemonicUtils.generateMnemonic(initialEntropy);
-                out.println("mnemonic: " + mnemonic);
-                checkWallet(mnemonic);
-                out.println();
-                Thread.sleep(20);
-            }
-        } catch (Exception ex) {
-            out.printf("Error: %s%n", ex.getMessage());
-            ex.printStackTrace();
+        final int numberOfProcesses = Runtime.getRuntime().availableProcessors() * 2;
+        List<CompletableFuture<Void>> seekers = new ArrayList<>(numberOfProcesses);
+        for (int i = 0; i < numberOfProcesses; i++) {
+            seekers.add(runAsync(() -> {
+                try {
+                    while (true) {
+                        byte[] initialEntropy = new byte[16];
+                        secureRandom.nextBytes(initialEntropy);
+                        String mnemonic = MnemonicUtils.generateMnemonic(initialEntropy);
+                        out.println("mnemonic: " + mnemonic);
+                        checkWallet(mnemonic);
+                        out.println();
+                    }
+                } catch (Exception ex) {
+                    out.printf("Error: %s%n", ex.getMessage());
+                    ex.printStackTrace();
+                }
+            }));
         }
+        joinAllTasks(seekers);
         out.printf("%s: Finish Crypto%n", new Date());
+    }
+
+    private static <T> void joinAllTasks(List<CompletableFuture<T>> tasks) {
+        if (tasks.isEmpty()) return;
+        allOf(tasks.toArray(new CompletableFuture[]{})).join();
     }
 
     private static void checkWallet(String mnemonic) throws InterruptedException, ExecutionException, IOException, CipherException {
@@ -78,6 +94,7 @@ public class Crypto {
             FileWriter fileWriter = new FileWriter(walletsDir.getPath() + "/" + address);
             PrintWriter printWriter = new PrintWriter(fileWriter);
             printWriter.printf("Balance: %s%n", balance);
+            printWriter.printf("Mnemonic: %s%n", mnemonic);
             printWriter.close();
             generateWallet(mnemonic);
         }
